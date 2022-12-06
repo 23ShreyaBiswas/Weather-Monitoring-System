@@ -1,3 +1,3 @@
 # Weather-Monitoring-System
-Using Thingspeak and thing show app
-Measures Temperature Humidity Rainfall and Pressure using arduino and esp8266
+Using Thingspeak and thing show app we can
+measure temperature,humidity,rainfall and pressure using arduino and esp8266.
