@@ -1,0 +1,153 @@
+#include <SoftwareSerial.h>
+#include <dht11.h>
+#include <SFE_BMP180.h>
+#include <Wire.h>
+#define RX 2
+#define TX 3
+#define dht_apin 11 // Analog Pin sensor is connected to
+const int buzzer = 13;  //pin number for buzzer
+SFE_BMP180 pressure;
+dht11 dhtObject;
+String AP = "Sk";       // AP NAME
+String PASS = "seenu123"; // AP PASSWORD
+String API = "N532PJ68KHIE2B81";   // Write API KEY
+String HOST = "api.thingspeak.com";
+String PORT = "80";
+int countTrueCommand;
+int countTimeCommand; 
+boolean found = false; 
+int valSensor = 1;
+  
+SoftwareSerial esp8266(RX,TX); 
+  
+void setup() {
+  Serial.begin(9600);
+  pinMode(buzzer,OUTPUT);
+  pressure.begin();
+  Wire.begin();
+  esp8266.begin(115200);
+  sendCommand("AT",5,"OK");
+  sendCommand("AT+CWMODE=1",5,"OK");
+  sendCommand("AT+CWJAP=\""+ AP +"\",\""+ PASS +"\"",20,"OK");
+}
+
+void loop() {
+  
+ String getData = "GET /update?api_key="+ API +"&field1="+getTemperatureValue()+"&field2="+getHumidityValue()+"&field3="+getrainvalue()+"&field4="+getpressurevalue();
+ sendCommand("AT+CIPMUX=1",5,"OK");
+ sendCommand("AT+CIPSTART=0,\"TCP\",\""+ HOST +"\","+ PORT,15,"OK");
+ sendCommand("AT+CIPSEND=0," +String(getData.length()+4),4,">");
+ esp8266.println(getData);delay(1500);countTrueCommand++;
+ sendCommand("AT+CIPCLOSE=0",5,"OK");
+}
+
+
+String getTemperatureValue(){
+
+   dhtObject.read(dht_apin);
+   Serial.print(" Temperature(C)= ");
+   int temp = dhtObject.temperature;
+   Serial.println(temp); 
+   delay(50);
+   return String(temp); 
+  
+}
+
+
+String getHumidityValue(){
+
+   dhtObject.read(dht_apin);
+   Serial.print(" Humidity in %= ");
+   int humidity = dhtObject.humidity;
+   Serial.println(humidity);
+   delay(50);
+   return String(humidity); 
+  
+}
+
+String getrainvalue()
+{
+  int rainValue = analogRead(A0);
+  // print out the value you read:
+  Serial.print("Rain fall value: ");
+  Serial.print(rainValue);
+  if (rainValue<500)
+  {
+      Serial.println(":- it is raining");
+      digitalWrite(buzzer,HIGH);
+    }
+   else
+   {
+    Serial.println(":- it is not raining");
+       digitalWrite(buzzer,LOW);
+   }
+  delay(50);
+  return String(rainValue);
+}
+
+String getpressurevalue()
+{
+  char status;
+double T, P, p0, a;
+status = pressure.startTemperature();
+if (status != 0)
+{
+delay(status);
+status = pressure.getTemperature(T);
+if (status != 0)
+{
+status = pressure.startPressure(3);
+if (status != 0)
+{
+delay(status);
+status = pressure.getPressure(P, T);
+if (status != 0)
+{
+Serial.print("absolute pressure: ");
+Serial.print(P, 2);
+Serial.println(" hpa");
+}
+else Serial.println("error retrieving pressure measurement\n");
+}
+else Serial.println("error starting pressure measurement\n");
+}
+else Serial.println("error retrieving temperature measurement\n");
+}
+else Serial.println("error starting temperature measurement\n");
+delay(50);
+return String(P,2);
+}
+
+void sendCommand(String command, int maxTime, char readReplay[]) {
+  Serial.print(countTrueCommand);
+  Serial.print(". at command => ");
+  Serial.print(command);
+  Serial.print(" ");
+  while(countTimeCommand < (maxTime*1))
+  {
+    esp8266.println(command);//at+cipsend
+    if(esp8266.find(readReplay))//ok
+    {
+      found = true;
+      break;
+    }
+  
+    countTimeCommand++;
+  }
+  
+  if(found == true)
+  {
+    Serial.println("OK");
+    countTrueCommand++;
+    countTimeCommand = 0;
+  }
+  
+  if(found == false)
+  {
+    Serial.println("Fail");
+    countTrueCommand = 0;
+    countTimeCommand = 0;
+  }
+  
+  found = false;
+ }
